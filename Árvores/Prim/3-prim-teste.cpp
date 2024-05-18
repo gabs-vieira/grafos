@@ -55,9 +55,11 @@ void primMST(int graph[V][V], int vertice_inicial)
     // Imprime a MST
     int soma = 0;
     printf("Aresta   Peso\n");
-    for (int i = 1; i < V; i++)
+    for (int i = 0; i < V; i++)
     {
-        printf("%d - %d     %d\n", parent[i], i, graph[i][parent[i]]);
+        if (parent[i]!=-1){
+            printf("%d - %d     %d\n", parent[i], i, graph[i][parent[i]]);
+        }
         soma += graph[i][parent[i]];
     }
 
