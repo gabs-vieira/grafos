@@ -1,221 +1,174 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#include<stdio.h>
+#include<stdlib.h>
 
-#define MAX_VERTICES 1000
+//Grafo geral
+int grafo[1000][1000]; // colocando ele como 
 
-// Estrutura para representar uma aresta
-typedef struct {
-    int u, v;
-} Aresta;
 
-// Estrutura para representar uma componente biconexa
-typedef struct {
-    int vertices[MAX_VERTICES];
-    int tamanho;
-} ComponenteBiconexa;
 
-int numVertices, numArestas;
-int grafo[MAX_VERTICES][MAX_VERTICES];
-int visitado[MAX_VERTICES], desc[MAX_VERTICES], low[MAX_VERTICES], pai[MAX_VERTICES]; // Vetores auxiliares
-bool articulacao[MAX_VERTICES];
-Aresta arestas[MAX_VERTICES];
-int contagemArestas = 0;
-int tempo = 0;
+// PRINTS
+void imprimirLowpoints(int *lowpoints, int nVertices){
+    for (int i = 0; i < nVertices; i++)
+        printf("%d: %d\n", i+1, lowpoints[i]);
+}
 
-ComponenteBiconexa componentesBiconexas[MAX_VERTICES];
-int contagemComponentesBiconexas = 0;
+void imprimirPontes(int *lowpoints, int nVertices){
+    printf("Pontes: ");
 
-int pilha[MAX_VERTICES][2];
-int topo = -1;
+    int temPontes = 0;
 
-// Inicializa o grafo e as estruturas auxiliares
-void inicializaGrafo() {
-    for (int i = 0; i < MAX_VERTICES; i++) {
-        for (int j = 0; j < MAX_VERTICES; j++) {
-            grafo[i][j] = 0;
+    for(int i = 1; i<nVertices; i++){
+        for(int j = 1; j<nVertices; j++){
+            if(grafo[i][j] == 2 && lowpoints[j] == j)
+                printf("%d %d\n", i, j);
+                temPontes = 1;
         }
-        visitado[i] = 0;
-        desc[i] = -1;
-        low[i] = -1;
-        pai[i] = -1;
-        articulacao[i] = false;
     }
-    contagemArestas = 0;
-    tempo = 0;
-    contagemComponentesBiconexas = 0;
-    topo = -1;
+    if (temPontes != 0){
+        printf("Nenhuma\n");
+    }
+    printf("\n");
+    
 }
 
-// Adiciona uma aresta ao grafo
-void adicionaAresta(int u, int v) {
-    grafo[u][v] = 1;
-    grafo[v][u] = 1;
+
+
+void dfs(int vertice, int nivel_corrente, int *niveis, int nVertices)
+{
+    niveis[vertice] = nivel_corrente;
+    for (int i = 0; i < nVertices; i++)
+    {
+        if (grafo[vertice][i] == 1 && niveis[i] == -1)
+        {
+            grafo[vertice][i] = 2;
+            grafo[i][vertice] = 0;
+            dfs(i, nivel_corrente + 1, niveis, nVertices);
+        }
+    }
 }
 
-// Empilha uma aresta (u, v) para rastrear componentes biconexas
-void push(int u, int v) {
-    topo++;
-    pilha[topo][0] = u;
-    pilha[topo][1] = v;
+int lowpoint(int vertice, int *lowpoints, int *niveis, int nVertices)
+{
+    for (int origem = 0; origem < nVertices; origem++)
+        for (int destino = 0; destino < nVertices; destino++)
+            if (grafo[origem][destino] == 1 && niveis[origem] < niveis[destino])
+                grafo[origem][destino] = 0;
+
+    if (lowpoints[vertice] != -1)
+        return lowpoints[vertice];
+
+    lowpoints[vertice] = vertice;
+
+    for (int i = 0; i < nVertices; i++)
+    {
+        if (grafo[vertice][i] == 2 && niveis[lowpoint(i, lowpoints, niveis, nVertices)] < niveis[lowpoints[vertice]])
+            lowpoints[vertice] = lowpoints[i];
+        else if (grafo[vertice][i] == 1 && niveis[i] < niveis[lowpoints[vertice]])
+            lowpoints[vertice] = i;
+    }
+
+    return lowpoints[vertice];
 }
 
-// Desempilha uma aresta
-void pop() {
-    topo--;
-}
+int main(){
 
-// Realiza a busca em profundidade (DFS) e calcula lowpoints, pontes e articulações
-void DFS(int u) {
-    visitado[u] = 1;
-    desc[u] = low[u] = ++tempo;
-    int filhos = 0;
+    //Ler arquivo
+    FILE *file;
+    file = fopen("arquivo.txt", "r");
 
-    for (int v = 1; v <= numVertices; v++) {
-        if (grafo[u][v]) {
-            if (!visitado[v]) {
+    //Número de grafos
+    int numeroGrafos;
+    fscanf(file, "%d", &numeroGrafos);
+
+    for (int i = 0; i < numeroGrafos; i++){
+
+        //Ler número de vértices e arestas
+        int numeroVertices, numeroArestas;
+        fscanf(file, "%d %d", &numeroVertices, &numeroArestas);
+
+        //Lógica para o GRAFO
+        //Inicializar o grafo/Resetar o grafo
+        for (int j = 0; j < 1000; j++){
+            for (int k = 0; k < 1000; k++){
+                grafo[j][k] = 0;
+            }
+        }
+
+        //Ler arestas
+        for (int j = 0; j < numeroArestas; j++){
+            int origem, destino;
+            fscanf(file, "%d %d", &origem, &destino);
+            grafo[origem-1][destino-1] = 1;
+            grafo[destino-1][origem-1] = 1;
+        }
+
+        int niveis[numeroVertices];
+        int lowpoits[numeroVertices]; 
+        for(int i=0; i<numeroVertices; i++) niveis[i] = lowpoits[i] = -1;
+
+
+        //Transformar o grafo não dirigido em dirigido
+        dfs(1, 0, niveis, numeroVertices);
+        //Calcular os lowpoints
+        lowpoint(1, lowpoits, niveis, numeroVertices);
+
+        int marcadores[numeroVertices];
+        int articulacoes[numeroVertices];
+        //Inicializar marcadores e articulações
+        for (int i = 0; i < numeroVertices; i++){
+            marcadores[i] = 0;
+            articulacoes[i] = 0;
+        }
+
+
+
+
+
+
+
+        //Verificar se é articulação pra Raiz
+        int raiz = 1, filhos = 0;
+        for (int destino = 1; destino < numeroVertices; destino++)
+            if (grafo[raiz][destino] == 2)
+            {
                 filhos++;
-                pai[v] = u;
-                push(u, v);  // Empilha a aresta (u, v)
-                DFS(v);
+                marcadores[raiz] = destino;
+                if (filhos > 2)
+                    articulacoes[raiz] = raiz;
+            }
 
-                low[u] = (low[u] < low[v]) ? low[u] : low[v];
-
-                // Verifica se u é um ponto de articulação
-                if ((pai[u] == -1 && filhos > 1) || (pai[u] != -1 && low[v] >= desc[u])) {
-                    articulacao[u] = true;
-
-                    // Cria uma nova componente biconexa
-                    ComponenteBiconexa componente;
-                    componente.tamanho = 0;
-                    while (pilha[topo][0] != u || pilha[topo][1] != v) {
-                        int a = pilha[topo][0];
-                        int b = pilha[topo][1];
-                        componente.vertices[componente.tamanho++] = a;
-                        componente.vertices[componente.tamanho++] = b;
-                        pop();
-                    }
-                    componente.vertices[componente.tamanho++] = u;
-                    componente.vertices[componente.tamanho++] = v;
-                    pop();
-                    componentesBiconexas[contagemComponentesBiconexas++] = componente;
+        //Verificar se é articulação para os outros vértices
+        for (int origem = 1; origem < numeroVertices; origem++)
+            for (int destino = 1; destino < numeroVertices; destino++)
+                if (grafo[origem][destino] == 2 && (lowpoits[destino] == origem || lowpoits[destino] == destino))
+                {
+                    marcadores[origem] = destino;
+                    if (origem != raiz)
+                        articulacoes[origem] = origem;
                 }
 
-                // Verifica se (u, v) é uma ponte
-                if (low[v] > desc[u]) {
-                    arestas[contagemArestas++] = (Aresta){u, v};
-                }
-            } else if (v != pai[u] && desc[v] < desc[u]) {
-                low[u] = (low[u] < desc[v]) ? low[u] : desc[v];
-                push(u, v);  // Empilha a aresta de retorno (u, v)
-            }
-        }
-    }
-}
 
-// Imprime os lowpoints de cada vértice
-void imprimeLowpoints() {
-    printf("Lowpts: ");
-    for (int i = 1; i <= numVertices; i++) {
-        printf("%d:%d ", i, low[i]);
-    }
-    printf("\n");
-}
+        //Imprimir lowpoints
+        imprimirLowpoints(lowpoits, numeroVertices);
 
-// Imprime as pontes do grafo
-void imprimePontes() {
-    if (contagemArestas == 0) {
-        printf("Pontes: nenhuma\n");
-    } else {
-        printf("Pontes: ");
-        for (int i = 0; i < contagemArestas; i++) {
-            printf("(%d,%d) ", arestas[i].u, arestas[i].v);
-        }
-        printf("\n");
-    }
-}
+        //Imprimir as Pontes
+        imprimirPontes(lowpoits, numeroVertices);
 
-// Imprime os pontos de articulação do grafo
-void imprimeArticulacoes() {
-    bool temArticulacao = false;
-    printf("Articulações: ");
-    for (int i = 1; i <= numVertices; i++) {
-        if (articulacao[i]) {
-            printf("%d ", i);
-            temArticulacao = true;
-        }
-    }
-    if (!temArticulacao) {
-        printf("nenhuma");
-    }
-    printf("\n");
-}
+        //Imprimir as Articulações
+        printf("Articulacoes: ");
+        for (int i = 1; i < numeroVertices; i++)
+            if (articulacoes[i] != 0)
+                printf("%d ", i);
 
-// Imprime os demarcadores do grafo (pontos de articulação e filhos da raiz)
-void imprimeDemarcadores() {
-    printf("Demarcadores: ");
-    for (int i = 1; i <= numVertices; i++) {
-        if (articulacao[i] || pai[i] == 1) {
-            printf("%d ", i);
-        }
-    }
-    printf("\n");
-}
+        //Imprimir Demarcadores
+        printf("\nDemarcadores: ");
+        for (int i = 1; i < numeroVertices; i++)
+            if (marcadores[i] != 0)
+                printf("%d ", i);
 
-// Imprime os vértices que compõem cada componente biconexa
-void imprimeComponentesBiconexas() {
-    printf("Componentes biconexas: ");
-    for (int i = 0; i < contagemComponentesBiconexas; i++) {
-        printf("{");
-        for (int j = 0; j < componentesBiconexas[i].tamanho; j++) {
-            printf("%d", componentesBiconexas[i].vertices[j]);
-            if (j < componentesBiconexas[i].tamanho - 1) {
-                printf(",");
-            }
-        }
-        printf("} ");
-    }
-    printf("\n");
-}
+        printf("\n\n");
 
-// Lê o grafo a partir de um arquivo de entrada
-void leGrafoDoArquivo(const char *filename) {
-    FILE *arquivo = fopen(filename, "r");
-    if (arquivo == NULL) {
-        fprintf(stderr, "Não foi possível abrir o arquivo de entrada.\n");
-        return;
     }
 
-    int numGrafos;
-    fscanf(arquivo, "%d", &numGrafos);
-
-    for (int g = 0; g < numGrafos; g++) {
-        fscanf(arquivo, "%d %d", &numVertices, &numArestas);
-        inicializaGrafo();
-
-        // Lê as arestas do grafo
-        for (int i = 0; i < numArestas; i++) {
-            int u, v;
-            fscanf(arquivo, "%d %d", &u, &v);
-            adicionaAresta(u, v);
-        }
-
-        // Executa DFS a partir do vértice 1
-        DFS(1);
-
-        // Imprime os resultados
-        imprimeLowpoints();
-        imprimePontes();
-        imprimeArticulacoes();
-        imprimeDemarcadores();
-        imprimeComponentesBiconexas();
-    }
-
-    fclose(arquivo);
-}
-
-int main() {
-    const char *filename = "arquivo.txt";
-    leGrafoDoArquivo(filename);
     return 0;
 }
