@@ -1,190 +1,220 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAX_N 100
+#define MAX_N 1000
 
-int g[MAX_N][MAX_N];
-int nivel[MAX_N];
-int low[MAX_N];
-int pai[MAX_N];
-int filhos[MAX_N][MAX_N];
-int num_filhos[MAX_N];
-int ponte_encontrada;
+int graph[MAX_N][MAX_N], level[MAX_N], low[MAX_N], num_children[MAX_N], parent[MAX_N], children[MAX_N][MAX_N];
+int bridge = 0;
 
-void inicializar(int N) {
+// Função para inicializar as variáveis
+void initializeVariables(int N) {
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            g[i][j] = 0;
+            graph[i][j] = 0;
         }
-        nivel[i] = -1;
+        level[i] = -1;
         low[i] = -1;
-        pai[i] = -1;
-        num_filhos[i] = 0;
+        parent[i] = -1;
+        num_children[i] = 0;
     }
-    ponte_encontrada = 0;
+    bridge = 0;
 }
 
-void marcar(int linha1, int linha2) {
-    g[linha1][linha2] = 1;
-    g[linha2][linha1] = 1;
-}
+// Função de busca em profundidade (DFS)
+void dfs(int v, int current_parent, int N) {
+    // Inicializa o tempo estático para a primeira chamada de DFS
+    static int time = 0;
 
-void dfs(int v, int pai_atual, int N) {
-    static int tempo = 0;
-    nivel[v] = low[v] = ++tempo;
-    pai[v] = pai_atual;
+    // Define o nível e o valor low do vértice atual 'v' com base no tempo da visita
+    level[v] = low[v] = ++time;
 
+    // Define o pai do vértice atual
+    parent[v] = current_parent;
+
+    // Percorre todos os vértices para explorar os vizinhos do vértice 'v'
     for (int i = 0; i < N; i++) {
-        if (g[v][i] == 1) {
-            if (nivel[i] == -1) {
-                filhos[v][num_filhos[v]++] = i;
+        // Se houver uma aresta entre 'v' e 'i'
+        if (graph[v][i] == 1) {
+            // Se o vértice 'i' não foi visitado (nível igual a -1)
+            if (level[i] == -1) {
+                // Adiciona 'i' como filho de 'v'
+                children[v][num_children[v]++] = i;
+
+                // Chama a DFS recursivamente para o vértice 'i'
                 dfs(i, v, N);
+
+                // Atualiza o valor low do vértice 'v' com o menor valor low de seus filhos
                 low[v] = (low[i] < low[v]) ? low[i] : low[v];
-            } else if (i != pai_atual) {
-                low[v] = (nivel[i] < low[v]) ? nivel[i] : low[v];
+            } 
+            // Se 'i' já foi visitado e 'i' não é o pai do vértice 'v'
+            else if (i != current_parent) {
+                // Atualiza o valor low do vértice 'v' com o nível de 'i' se for menor
+                low[v] = (level[i] < low[v]) ? level[i] : low[v];
             }
         }
     }
 }
 
-int acharDemarcadores(int vetorArticulacao[], int tamanhoArticulacao, int *tam, int N, int vetor[]) {
+// Função para calcular os marcadores
+int markers(int articulationArray[], int articulationSize, int *size, int N, int array[]) {
     int n = 0;
     int i, j;
-    for (i = 0; i < N; i++) {
-        if (pai[i] == -1) {
-            n += num_filhos[i];
+
+    // Adiciona a quantidade de filhos das raízes (nós sem pai)
+    for (int i = 0; i < N; i++) {
+        if (parent[i] == -1) {
+            n += num_children[i];
         }
     }
-    for (i = 0; i < tamanhoArticulacao; i++) {
-        n += num_filhos[vetorArticulacao[i]];
+
+    // Adiciona a quantidade de filhos dos nós de articulação
+    for (int i = 0; i < articulationSize; i++) {
+        n += num_children[articulationArray[i]];
     }
 
     int index = 0;
-
-    for (i = 0; i < N; i++) {
-        if (pai[i] == -1) {
-            for (j = 0; j < num_filhos[i]; j++) {
-                vetor[index++] = filhos[i][j];
+    // Preenche o vetor com os filhos das raízes
+    for (int i = 0; i < N; i++) {
+        if (parent[i] == -1) {
+            for (int j = 0; j < num_children[i]; j++) {
+                array[index++] = children[i][j];
             }
         }
     }
-    for (i = 0; i < tamanhoArticulacao; i++) {
-        for (j = 0; j < num_filhos[vetorArticulacao[i]]; j++) {
-            vetor[index++] = filhos[vetorArticulacao[i]][j];
+
+    // Preenche o vetor com os filhos dos nós de articulação
+    for (int i = 0; i < articulationSize; i++) {
+        for (int j = 0; j < num_children[articulationArray[i]]; j++) {
+            array[index++] = children[articulationArray[i]][j];
         }
     }
-    *tam = n;
+
+    // Atualiza o tamanho do vetor de marcadores
+    *size = n;
+
     return n;
 }
 
-int acharArticulacao(int *tam, int N, int vetor[]) {
+// Função para identificar nós de articulação
+int articulations(int *size, int N, int array[]) {
     int n = 0;
-    
+
     for (int i = 0; i < N; i++) {
-        if (pai[i] == -1 && num_filhos[i] >= 2) {
-            vetor[n++] = i;
-        } else if (pai[i] != -1) {
-            int isArticulacao = 0;
-            for (int j = 0; j < num_filhos[i]; j++) {
-                if (low[filhos[i][j]] >= nivel[i]) {
-                    isArticulacao = 1;
+        if (parent[i] == -1 && num_children[i] >= 2) {
+            array[n++] = i;
+        } else if (parent[i] != -1) {
+            int isArticulation = 0;
+            for (int j = 0; j < num_children[i]; j++) {
+                if (low[children[i][j]] >= level[i]) {
+                    isArticulation = 1;
                     break;
                 }
             }
-            if (isArticulacao) {
-                vetor[n++] = i;
+            if (isArticulation) {
+                array[n++] = i;
             }
         }
     }
-    
-    *tam = n;
+
+    *size = n;
     return n;
 }
 
+// Função para busca em largura (BFS)
 void bfs(int vi, int N) {
-    int fila[MAX_N], PA = 0, TD = 0;
-    fila[PA++] = vi;
-    nivel[vi] = 0;
+    int queue[MAX_N], front = 0, rear = 0;
+    queue[rear++] = vi;
+    level[vi] = 0;
 
-    while (TD < PA) {
-        int v = fila[TD++];
+    while (front < rear) {
+        int v = queue[front++];
         for (int i = 0; i < N; i++) {
-            if (g[v][i] && nivel[i] == -1) {
-                fila[PA++] = i;
-                nivel[i] = nivel[v] + 1;
+            if (graph[v][i] && level[i] == -1) {
+                queue[rear++] = i;
+                level[i] = level[v] + 1;
             }
         }
     }
 }
 
-void encontrarComponentesBiconexas(int demarcadores[], int tamDemarcadores, int vetorArticulacao[], int tamanhoArticulacao, int N) {
-    int visitado[MAX_N];
-    int ehArticulacao = 0;
+// Função para identificar componentes biconexas
+void biconnectedComponents(int markers[], int markersSize, int articulationArray[], int articulationSize, int N) {
+    int visited[MAX_N];
+    int isArticulation = 0;
 
     for (int i = 0; i < N; i++) {
-        visitado[i] = 0;
-        nivel[i] = -1;
+        visited[i] = 0;
+        level[i] = -1;
     }
 
-    printf("\n");
-    printf("CB:\n");
+    printf("Biconnected Components: ");
 
-    for (int i = tamDemarcadores - 1; i >= 0; i--) {
+    for (int i = markersSize - 1; i >= 0; i--) {
         for (int j = 0; j < N; j++) {
-            nivel[j] = -1;
+            level[j] = -1;
         }
 
-        bfs(demarcadores[i], N);
+        bfs(markers[i], N);
 
-        ehArticulacao = 0;
+        isArticulation = 0;
 
+        int first_printed = 0; // Controla a formatação das componentes biconexas
+
+        printf("{");
         for (int j = 0; j < N; j++) {
-            if ((nivel[j] == 1 || nivel[j] == 0) && visitado[j] == 0) {
-                printf("%d ", j + 1);
+            if ((level[j] == 1 || level[j] == 0) && visited[j] == 0) {
+                if (first_printed) {
+                    printf(", ");
+                }
+                printf("%d", j + 1);
 
-                for (int k = 0; k < tamanhoArticulacao; k++) {
-                    if (vetorArticulacao[k] == j) {
-                        ehArticulacao = 1;
+                for (int k = 0; k < articulationSize; k++) {
+                    if (articulationArray[k] == j) {
+                        isArticulation = 1;
                         break;
                     }
                 }
 
-                if (!ehArticulacao) {
-                    visitado[j] = 1;
+                if (!isArticulation) {
+                    visited[j] = 1;
                 }
 
-                ehArticulacao = 0;
+                isArticulation = 0;
+                first_printed = 1;
             }
         }
+        printf("}");
 
-        printf("\n");
+        if (i != 0) { // Adiciona a vírgula entre componentes biconexas
+            printf(", ");
+        }
     }
+    printf("\n");
 }
 
-void encontrarPontes(int v, int visitado[], int tempo[], int low[], int pai[], int disc[], int N) {
+// Função para identificar pontes
+void bridges(int v, int visited[], int time[], int low[], int parent[], int disc[], int N) {
     static int t = 0;
-    visitado[v] = 1;
+    visited[v] = 1;
     disc[v] = low[v] = ++t;
 
     for (int i = 0; i < N; i++) {
-        if (g[v][i]) {
+        if (graph[v][i]) {
             int u = i;
-            if (!visitado[u]) {
-                pai[u] = v;
-                encontrarPontes(u, visitado, tempo, low, pai, disc, N);
+            if (!visited[u]) {
+                parent[u] = v;
+                bridges(u, visited, time, low, parent, disc, N);
                 low[v] = (low[u] < low[v]) ? low[u] : low[v];
                 if (low[u] > disc[v]) {
-                    printf("Ponte: (%d, %d)\n", v + 1, u + 1);
-                    ponte_encontrada = 1;
+                    printf("Bridge: (%d, %d)\n", v + 1, u + 1);
+                    bridge = 1;
                 }
-            } else if (u != pai[v]) {
+            } else if (u != parent[v]) {
                 low[v] = (disc[u] < low[v]) ? disc[u] : low[v];
             }
         }
     }
 }
-
-
 
 int main() {
     FILE* file = fopen("arquivo.txt", "r");
@@ -193,70 +223,73 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    int quantidade_grafos;
-    fscanf(file, "%d", &quantidade_grafos);
-    
-    for (int k = 0; k < quantidade_grafos; k++) {
+    int numberGraphs;
+    fscanf(file, "%d", &numberGraphs);
+
+    for (int k = 0; k < numberGraphs; k++) {
         int N, M;
         fscanf(file, "%d %d", &N, &M);
 
-        inicializar(N);
-        
+        initializeVariables(N);
+
         for (int i = 0; i < M; i++) {
             int u, v;
             fscanf(file, "%d %d", &u, &v);
-            marcar(u - 1, v - 1);
+            graph[u - 1][v - 1] = 1;
+            graph[v - 1][u - 1] = 1;
         }
 
+        // Transformar o grafo não dirigido em dirigido
         dfs(0, -1, N);
-        printf("Grafo: %d\n", k + 1);
-        printf("Lowpts:\n");
+
+        // Printar Lowpoints
+        printf("\nLowpoints: ");
         for (int i = 0; i < N; i++) {
-            printf("%d:%d\n", i + 1, low[i]);
+            printf("%d:%d ", i + 1, low[i]);
         }
         printf("\n");
 
-        int tamArticulacao;
-        int articulacao[MAX_N];
+        // Articulações
+        int articulationSize;
+        int articulation[MAX_N];
 
-        acharArticulacao(&tamArticulacao, N, articulacao);
+        articulations(&articulationSize, N, articulation);
 
-        printf("Articulações: ");
-        if(tamArticulacao == 0){
+        printf("Articulations: ");
+        if (articulationSize == 0) {
             printf("nenhuma");
         }
-        for (int i = 0; i < tamArticulacao; i++) {
-            printf("%d ", articulacao[i] + 1);
+        for (int i = 0; i < articulationSize; i++) {
+            printf("%d ", articulation[i] + 1);
         }
         printf("\n");
 
-        int visitado[MAX_N] = {0};
-        int tempo[MAX_N];
+        int visited[MAX_N] = {0};
+        int time[MAX_N];
         int disc[MAX_N];
         for (int i = 0; i < N; i++) {
-            tempo[i] = -1;
+            time[i] = -1;
             disc[i] = -1;
         }
-        encontrarPontes(0, visitado, tempo, low, pai, disc, N);
-        if (!ponte_encontrada) {
-            printf("Ponte: nenhuma\n");
+        bridges(0, visited, time, low, parent, disc, N);
+        if (!bridge) {
+            printf("Bridge: nenhuma\n");
         }
-        int tamDemarcadores;
-        int demarcadores[MAX_N];
+        int markersSize;
+        int markerss[MAX_N];
 
-        acharDemarcadores(articulacao, tamArticulacao, &tamDemarcadores, N, demarcadores);
+        markers(articulation, articulationSize, &markersSize, N, markerss);
 
-        printf("Demarcadores: ");
-        for (int i = 0; i < tamDemarcadores; i++) {
-            printf("%d ", demarcadores[i] + 1);
+        printf("Markers: ");
+        for (int i = 0; i < markersSize; i++) {
+            printf("%d ", markerss[i] + 1);
         }
         printf("\n");
 
-        encontrarComponentesBiconexas(demarcadores, tamDemarcadores ,articulacao,tamArticulacao, N);
+        biconnectedComponents(markerss, markersSize, articulation, articulationSize, N);
     }
 
     fclose(file);
-
 
     return 0;
 }
